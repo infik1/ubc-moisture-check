@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>UBC受入時の水分チェック</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{
+  background:#f3f4f6;
+  font-family:system-ui,sans-serif;
+  padding:16px;
+}
+.card{
+  max-width:520px;
+  margin:auto;
+  background:#fff;
+  border-radius:18px;
+  padding:18px;
+  box-shadow:0 8px 18px rgba(0,0,0,.06);
+}
+h1{font-size:1.1rem;margin-bottom:4px;}
+.subtitle{font-size:.8rem;color:#6b7280;margin-bottom:16px;line-height:1.4;}
+
+.section-title{
+  font-size:.9rem;font-weight:600;
+  margin:14px 0 6px;
+  display:flex;gap:6px;align-items:center;
+}
+.section-title::before{
+  content:"";width:3px;height:14px;
+  background:#3b82f6;border-radius:99px;
+}
+
+.input-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.input-col{
+  background:#f9fafb;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:8px;
+}
+.input-col-header{
+  text-align:center;
+  font-size:.8rem;
+  font-weight:600;
+}
+.input-row-label{
+  font-size:.75rem;
+  color:#6b7280;
+  margin-top:6px;
+}
+input{
+  width:100%;
+  padding:8px;
+  border-radius:10px;
+  border:1px solid #d1d5db;
+  box-sizing:border-box;
+}
+
+.btn-row{
+  display:flex;
+  gap:8px;
+  margin-top:12px;
+}
+button{
+  flex:1;
+  border:none;
+  border-radius:999px;
+  padding:10px;
+  font-weight:600;
+  cursor:pointer;
+}
+.calc{background:#2563eb;color:#fff;}
+.reset{background:#fbcfe8;color:#9d174d;}
+
+.results-box{
+  background:#f9fafb;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+}
+.results-grid{
+  display:grid;
+  grid-template-columns:1.1fr repeat(4,1fr);
+  font-size:.8rem;
+  text-align:center;
+  gap:6px;
+}
+.header{
+  font-weight:600;
+  border-bottom:1px solid #e5e7eb;
+  padding-bottom:4px;
+}
+
+.summary{
+  display:flex;
+  justify-content:center;
+  gap:16px;
+  margin-top:8px;
+  padding-top:6px;
+  border-top:1px dashed #e5e7eb;
+}
+.value{
+  background:#fef9c3;
+  border:1px solid #facc15;
+  padding:2px 6px;
+  border-radius:6px;
+}
+
+.status{
+  display:none;
+  margin-top:12px;
+  padding:10px;
+  border-radius:12px;
+  font-size:.85rem;
+  line-height:1.4;
+}
+.ng{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;}
+.ok{background:#ecfdf3;border:1px solid #bbf7d0;color:#166534;}
+.emph{font-weight:700;}
+.small{font-size:.78rem;color:#7f1d1d;margin-top:6px;line-height:1.35;}
+</style>
+</head>
+
+<body>
+<div class="card">
+<h1>UBC受入時の水分チェック</h1>
+<div class="subtitle">
+【再検査条件】<br>
+・上下水分差 2%以上<br>
+・平均水分 10%以上
+</div>
+
+<div class="section-title">水分入力 (kg)</div>
+<div class="input-grid">
+  <div class="input-col">
+    <div class="input-col-header">乾燥前</div>
+    <div class="input-row-label">上</div>
+    <input id="bt" type="number" step="0.01">
+    <div class="input-row-label">下</div>
+    <input id="bb" type="number" step="0.01">
+  </div>
+  <div class="input-col">
+    <div class="input-col-header">乾燥後</div>
+    <div class="input-row-label">上</div>
+    <input id="at" type="number" step="0.01">
+    <div class="input-row-label">下</div>
+    <input id="ab" type="number" step="0.01">
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="calc" onclick="calc()">計算する</button>
+  <button class="reset" onclick="resetAll()">リセット</button>
+</div>
+
+<div class="section-title">計算結果</div>
+<div class="results-box">
+  <div class="results-grid header">
+    <div>部位</div><div>乾燥前</div><div>乾燥後</div><div>差</div><div>水分</div>
+  </div>
+  <div class="results-grid">
+    <div>上</div>
+    <div id="bt_o">-</div>
+    <div id="at_o">-</div>
+    <div id="dt_o">-</div>
+    <div id="mt_o">-</div>
+  </div>
+  <div class="results-grid">
+    <div>下</div>
+    <div id="bb_o">-</div>
+    <div id="ab_o">-</div>
+    <div id="db_o">-</div>
+    <div id="mb_o">-</div>
+  </div>
+
+  <div class="summary">
+    <div>上下水分差 <span class="value" id="diff">-</span></div>
+    <div>平均水分 <span class="value" id="avg">-</span></div>
+  </div>
+</div>
+
+<div id="status" class="status"></div>
+</div>
+
+<script>
+function num(id){
+  const v = parseFloat(document.getElementById(id).value);
+  return Number.isFinite(v) ? v : null;
+}
+
+function fmtSignedKg(x){
+  return (x>=0?"+":"") + x.toFixed(2) + "kg";
+}
+
+function computeMetrics(bt, bb, at, ab){
+  const x = bt - at;
+  const y = bb - ab;
+  const mt = x / bt * 100;
+  const mb = y / bb * 100;
+  const avg = (x + y) / (bt + bb) * 100;
+  const diff = Math.abs(mt - mb);
+  return {x,y,mt,mb,avg,diff};
+}
+
+/* --- 両方調整（既存ロジック） --- */
+function nearestPassingPoint(bt, bb, x0, y0){
+  const T = 0.10 * (bt + bb);
+  const cons=[
+    {a:-1,b:0,c:0},{a:0,b:-1,c:0},{a:1,b:1,c:T},
+    {a:100/bt,b:-100/bb,c:2},{a:-100/bt,b:100/bb,c:2}
+  ];
+  const sat=(x,y)=>cons.every(k=>k.a*x+k.b*y<=k.c+1e-9);
+  if(sat(x0,y0))return{x:x0,y:y0};
+
+  let best=null,bestD=1e18;
+  for(let x=0;x<=T;x+=T/200){
+    for(let y=0;y<=T;y+=T/200){
+      if(sat(x,y)){
+        const d=(x-x0)**2+(y-y0)**2;
+        if(d<bestD){bestD=d;best={x,y};}
+      }
+    }
+  }
+  return best;
+}
+
+/* --- 片側調整 --- */
+function oneSideAdjust(bt, bb, x0, y0, side){
+  const T = 0.10 * (bt + bb);
+  let x=x0,y=y0;
+
+  if(side==="top"){
+    const minX=Math.max(
+      0,
+      T-y,
+      (y/bb-0.02)*bt,
+      (y/bb+0.02)*bt
+    );
+    x=Math.max(x0,minX);
+  }else{
+    const minY=Math.max(
+      0,
+      T-x,
+      (x/bt-0.02)*bb,
+      (x/bt+0.02)*bb
+    );
+    y=Math.max(y0,minY);
+  }
+
+  if(x<0||y<0||x>bt||y>bb)return null;
+  return {x,y};
+}
+
+function calc(){
+  const bt=num("bt"),bb=num("bb"),at=num("at"),ab=num("ab");
+  if([bt,bb,at,ab].includes(null))return;
+
+  const m=computeMetrics(bt,bb,at,ab);
+
+  bt_o.textContent=bt.toFixed(2);
+  at_o.textContent=at.toFixed(2);
+  dt_o.textContent=m.x.toFixed(2);
+  mt_o.textContent=m.mt.toFixed(2)+"%";
+  bb_o.textContent=bb.toFixed(2);
+  ab_o.textContent=ab.toFixed(2);
+  db_o.textContent=m.y.toFixed(2);
+  mb_o.textContent=m.mb.toFixed(2)+"%";
+  diff.textContent=m.diff.toFixed(2)+"%";
+  avg.textContent=m.avg.toFixed(2)+"%";
+
+  const status=document.getElementById("status");
+  status.style.display="block";
+
+  if(m.diff<2 && m.avg<10){
+    status.className="status ok";
+    status.innerHTML="<b>合格</b><br>基準値内です。";
+    return;
+  }
+
+  const both=nearestPassingPoint(bt,bb,m.x,m.y);
+  const top=oneSideAdjust(bt,bb,m.x,m.y,"top");
+  const bottom=oneSideAdjust(bt,bb,m.x,m.y,"bottom");
+
+  function plan(label,p){
+    if(!p)return `<li>${label}：該当なし</li>`;
+    const at2=bt-p.x,ab2=bb-p.y;
+    const mm=computeMetrics(bt,bb,at2,ab2);
+    if(mm.diff>=2||mm.avg>=10)return `<li>${label}：該当なし</li>`;
+    return `<li><b>${label}</b><br>
+      上 ${fmtSignedKg(at2-at)} ／ 下 ${fmtSignedKg(ab2-ab)}<br>
+      <span class="small">差 ${mm.diff.toFixed(2)}% ／ 平均 ${mm.avg.toFixed(2)}%</span>
+    </li>`;
+  }
+
+  status.className="status ng";
+  status.innerHTML=`
+  <b>判定：再検査</b>
+  <ul>
+    ${plan("両方調整（最小）",both)}
+    ${plan("上だけ調整",top)}
+    ${plan("下だけ調整",bottom)}
+  </ul>`;
+}
+
+function resetAll(){
+  document.querySelectorAll("input").forEach(i=>i.value="");
+  document.querySelectorAll(".results-box div[id], .summary span")
+    .forEach(e=>e.textContent="-");
+  const s=document.getElementById("status");
+  s.style.display="none";
+  s.innerHTML="";
+}
+</script>
+</body>
+</html>
